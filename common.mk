@@ -1,7 +1,7 @@
-$(PROG):
-	g++ `itpp-config --cflags` -o $(PROG) $(PROG).cpp `itpp-config --libs`
-	./$(PROG)
+run:
+	g++ `itpp-config --cflags` -o run $(PROG).cpp `itpp-config --libs`
+	./run
 debug:
-	g++ `itpp-config --debug --cflags` -o $(PROG)_debug $(PROG).cpp `itpp-config --debug --libs`
+	g++ `itpp-config --debug --cflags` -o run_debug $(PROG).cpp `itpp-config --debug --libs`
 clean:
-	rm $(PROG) -f
+	rm run run_debug -f
