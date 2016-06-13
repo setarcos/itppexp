@@ -6,4 +6,4 @@ run: $(PROG).cpp
 debug:
 	g++ `itpp-config --debug --cflags` -o run_debug $(PROG).cpp `itpp-config --debug --libs`
 clean:
-	rm run run_debug -f
+	rm run run_debug test.dat -f
