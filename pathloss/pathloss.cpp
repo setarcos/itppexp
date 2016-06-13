@@ -1,5 +1,4 @@
 #include <cmath>    // for log10
-#include <cstdlib>  // for system
 #include <iomanip>  // for setw
 #include <fstream>  // for ofstream
 
@@ -23,5 +22,4 @@ int main(int argc, char * argv[])
             << setw(12) << 20 * log10(4 * PI * d0 / lamda) + 10 * 6 * log10(d / d0) << endl;
     }
     ofs.close();
-    system("gnuplot test.gp");
 }

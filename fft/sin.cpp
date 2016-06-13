@@ -1,5 +1,4 @@
 #include <itpp/itsignal.h>
-#include <cstdlib>
 #include <fstream>
 
 using namespace std;
@@ -22,5 +21,4 @@ int main()
         ofs << abs(c[i]) / L << endl;
     }
     ofs.close();
-    system("gnuplot test.gp");
 }
