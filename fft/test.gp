@@ -1,2 +1,2 @@
 plot "test.dat" with lines
-pause mouse any "Hit any key except space to exit.\r\n"
+pause mouse any "Hit any key to exit.\r\n"
