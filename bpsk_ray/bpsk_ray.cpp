@@ -27,7 +27,7 @@ int main()
     tt.tic();
 
     Eb = 1.0;                      //The transmitted energy per BPSK symbol is 1.
-    EbN0dB = linspace(-5, 20.0, 13); //Simulate for 10 Eb/N0 values from 0 to 9 dB.
+    EbN0dB = linspace(-5, 21.0, 14); //Simulate for 14 Eb/N0 values from -5 to 21 dB.
     EbN0 = inv_dB(EbN0dB);         //Calculate Eb/N0 in a linear scale instead of dB.
     N0 = Eb * pow(EbN0, -1.0);     //N0 is the variance of the (complex valued) noise.
     Number_of_bits = 100000;       //One hundred thousand bits is transmitted for each Eb/N0 value
@@ -75,7 +75,7 @@ int main()
         bit_error_rate(i) = berc.get_errorrate();   //Save the estimated BER in the result vector
 
     }
-    tt.toc();
+    tt.toc_print();
     std::ofstream f("test.dat");
     for (int i = 0; i < bit_error_rate.length(); ++i) {
         f << setw(4) << EbN0dB(i) << setw(12) << bit_error_rate(i)
