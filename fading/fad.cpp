@@ -34,7 +34,7 @@ int main(int argc, char* argv[])
         f << abs(tc[i]) << endl;
     }
     f.close();
-    
+
     return 0;
 }
 
