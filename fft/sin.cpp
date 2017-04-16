@@ -5,20 +5,24 @@ using namespace std;
 using namespace itpp;
 
 const double PI=3.1415926;
-const int L = 500;
+const int fs = 500;
+const int T = 1;
 
 int main()
 {
     vec b;
-    b.set_size(L);
+    int f1 = 17;
+    int f2 = 50;
+    int N = T * fs;  // frequency resolution is fs/N=1/T
+    b.set_size(N);
 
-    for (int i = 0; i < L; ++i) {
-        b[i] = sin(20*PI/(L + 25) *i) + sin(100 * PI / L * i);
+    for (int i = 0; i < N; ++i) {
+        b[i] = 0.5 + sin(2 * PI * (f1 + 0.3)/ fs *i) + sin(2 * PI * f2 / fs * i);
     }
     ofstream ofs ("test.dat", ofstream::out);
     cvec c = fft_real(b);
-    for (int i = 0; i < L; ++i) {
-        ofs << abs(c[i]) / L << endl;
+    for (int i = 0; i < N; ++i) {
+        ofs << abs(c[i]) / N << endl;
     }
     ofs.close();
 }
