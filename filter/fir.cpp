@@ -1,5 +1,6 @@
 #include <itpp/itsignal.h>
 #include <fstream>
+#include <iomanip>
 
 using namespace std;
 using namespace itpp;
@@ -15,7 +16,7 @@ int main(int argc, char * argv[])
     cvec h = freqz(b, a, N / 2);
     ofstream ofs ("test.dat", ofstream::out);
     for (int i = 0; i < N / 2; ++i) {
-        ofs << abs(h[i]) << endl;
+        ofs << setw(16) << abs(h[i]) << setw(16) << arg(h[i]) << endl;
     }
     ofs.close();
 }
