@@ -28,6 +28,15 @@ int main(int argc, char * argv[])
             d = upsample(b, 4);
             N *= 4;
             break;
+        case 2:
+            d = zeros(N * 4);
+            d.set_subvector(N* 2, b);
+            N *= 4;
+            break;
+        case 3:
+            d = repeat(b, 4);
+            N *= 4;
+            break;
         default:
             d = b;
     }
