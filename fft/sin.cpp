@@ -25,19 +25,23 @@ int main(int argc, char * argv[])
     vec d;
     switch (t) {
         case 1:
+            cout << "upsampling by a factor of 4." << endl;
             d = upsample(b, 4);
             N *= 4;
             break;
         case 2:
+            cout << "zero padding to both ends." << endl;
             d = zeros(N * 4);
-            d.set_subvector(N* 2, b);
+            d.set_subvector(N * 2 - N / 2, b);
             N *= 4;
             break;
         case 3:
+            cout << "repeated 4 times." << endl;
             d = repeat(b, 4);
             N *= 4;
             break;
         default:
+            cout << "original fft." << endl;
             d = b;
     }
     cvec c = fft_real(d);
