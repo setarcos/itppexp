@@ -36,8 +36,15 @@ int main(int argc, char * argv[])
             N *= 4;
             break;
         case 3:
-            cout << "repeated 4 times." << endl;
+            cout << "repeat each point 4 times." << endl;
             d = repeat(b, 4);
+            N *= 4;
+            break;
+        case 4:
+            cout << "repeat the signal 4 times" << endl;
+            d = zeros(N * 4);
+            for (int i = 0; i < 4; ++i)
+                d.set_subvector(i * N, b);
             N *= 4;
             break;
         default:
