@@ -4,5 +4,4 @@ plot "test.dat" using 2 with lines
 set logscale y
 set format y "%.0e"
 plot "test.dat" using 1 with lines
-unset multiplot
 pause mouse any "Hit any key to exit.\r\n"
