@@ -36,7 +36,7 @@ int main(int argc, char* argv[])
         cap[i] = res;
     }
     ofstream f("test.dat");
-    if (t == 1) {
+    if (t >= 1) {
         vec r = "0.25, 0.333, 0.5, 0.666, 0.75";
         vec pe = linspace(-7, -1, 13);
         vec pel = pow(10, pe);
@@ -51,12 +51,18 @@ int main(int argc, char* argv[])
                     idx++;
                 }
                 if (idx == 0) idx = 1;
-                double ebno = (c - cap[idx - 1]) / (cap[idx] - cap[idx - 1]) * rate + EsN0dB[idx - 1];
-                f << setw(14) << ebno; // dB(inv_dB(ebno)/r[j]);
+                double snr = (c - cap[idx - 1]) / (cap[idx] - cap[idx - 1]) * rate + EsN0dB[idx - 1];
+                if (t == 1) // SNR
+                    f << setw(14) << snr;
+                if (t == 2)
+                    f << setw(14) << snr - 10 * log10(2 * r[j]); // EbN0
             }
             f << endl;
         }
-        system("cp test2.gp test.gp -f");
+        if (t == 1)
+            system("cp test2.gp test.gp -f");
+        if (t == 2)
+            system("sed 's/SNR/EbN0/g;s/8:5/3:3/g' test2.gp > test.gp");
     } else {
         for (int i = 0; i < EsN0.length(); ++i) {
             f << setw(14) << EsN0dB[i] << setw(14) << cap[i]
