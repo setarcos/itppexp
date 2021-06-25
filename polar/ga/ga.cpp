@@ -43,9 +43,10 @@ int main(int argc, char *argv[])
         return 0;
     }
     vec a[2];
-    a[0] = "3.5565";
+    a[0] = "3.5565"; // 2 / sigma^2
     int n = 1;
-    for (int i = 0; i < 3; ++i) {
+    int level = 3; // code length will be 2^level
+    for (int i = 0; i < level; ++i) {
         n *= 2;
         int j = i + 1;
         a[j % 2].set_size(n);
@@ -55,6 +56,6 @@ int main(int argc, char *argv[])
             a[j % 2][k * 2 + 1] = 2 * tmp;
         }
     }
-    cout << a[1] << endl;
+    cout << a[level % 2] << endl;
     return 1;
 }
