@@ -41,8 +41,7 @@ int main(int argc, char *argv[])
     bvec dec;  // decisions of info bits;
     dec.set_size(flen);
     bvec ibit;  // Internal bits
-    ibit.set_size(flen * 2 - 1);
-    bin current_bit;
+    ibit.set_size(flen * 2);
     ivec level;
     level.set_size(flen);
     for (int i = 1; i <= flen; ++i)
@@ -75,7 +74,7 @@ int main(int argc, char *argv[])
                 if (node % 2 == 1) // left child
                     ibit[flen * 2 - 2] = dec[idx];
                 else
-                    current_bit = dec[idx];
+                    ibit[flen * 2 - 1] = dec[idx]; // save for future use
             }
             node = node * 2 + 1; // Left child
         }
@@ -85,7 +84,7 @@ int main(int argc, char *argv[])
             // Encode internal bits
             if (level[node] < maxlevel - 1) {
                 int ml = level[node] + 1;
-                ibit[froms[ml]] = current_bit;
+                ibit[froms[ml]] = ibit[flen * 2 - 1];
                 for (int l = maxlevel; l > ml; --l) {
                     int s = flen / (1 << l);
                     for (int i = 0; i < s; ++i) {
@@ -98,12 +97,14 @@ int main(int argc, char *argv[])
                 double v1 = llr[froms[level[node]] + i];
                 double v2 = llr[froms[level[node]] + i + step];
                 int idx = froms[level[node] + 1] + i;
-                llr[idx] =(1 - 2 * (ibit[idx] ? 1: 0)) * v1 + v2;
+                llr[idx] =(1 - 2 * (ibit[idx] ? 1 : 0)) * v1 + v2;
             }
         }
         node = node * 2 + 2;
         st.pop();
     }
     cout << "decoded:   " << dec << endl;
+    if (dec == info) cout << "right" << endl;
+    else cout << "error" << endl;
     return 0;
 }
