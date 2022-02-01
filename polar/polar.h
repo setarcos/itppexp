@@ -47,6 +47,7 @@ public:
 
   //! Generate frozen bits
   void gen_frozen_bec(double epsilon);
+  void gen_frozen_ga(double sigma);
   
   //! Generate information bits position index
   void gen_unfrozen_idx();
@@ -56,6 +57,8 @@ private:
   int layers; // log2(n)
   bvec fbit;  // frozen bit defination
   ivec ufbit; // store the position of the information bits
+  double phi(double x);
+  double phi_1(double y);
 };
 
 } // namespace itpp
