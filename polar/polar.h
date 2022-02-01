@@ -55,7 +55,7 @@ private:
   int n, k;
   int layers; // log2(n)
   bvec fbit;  // frozen bit defination
-  ivec ufbit; // store the position of the unfrozen bits
+  ivec ufbit; // store the position of the information bits
 };
 
 } // namespace itpp
