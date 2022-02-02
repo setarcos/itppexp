@@ -9,8 +9,8 @@ using std::cout;
 
 int main(int argc, char *argv[])
 {
-    Polar p(8, 4);
-    p.gen_frozen_bec(0.7499);
+    Polar p(64, 32);
+    p.gen_frozen_bec(0.5);
 
     vec EbN0db = "1:0.5:5";
     double N0 = pow(10.0, -5 / 10.0) / p.get_rate();

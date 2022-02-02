@@ -122,25 +122,26 @@ void Polar::decode(const vec &llr_in, bvec &output)
 
 void Polar::decode_frame_sc(const vec &llr_in, bvec &output)
 {
+    int initialized;
     vec llr = llr_in;
     llr.set_size(n * 2 - 1, true);
-    for (int i = n; i < n * 2 - 1; ++i) llr[i] = 0;
-    bvec dec;  // decisions of info bits;
-    dec.set_size(n);
-    bvec ibit[2];  // Internal bits, C array in some literature
-    ibit[0].set_size(n * 2 - 1);
-    ibit[1].set_size(n * 2 - 1);
-    ibit[0].zeros();
-    ibit[1].zeros();
-    ivec level;
-    level.set_size(n);
-    for (int i = 1; i <= n; ++i)
-        level[i - 1] = floor_i(::log2(i));
-    ivec froms;
-    froms.set_size(layers + 1);
-    froms[0] = 0;
-    for (int i = 1; i <= layers; ++i)
-        froms[i] = froms[i - 1] + ::pow(2, layers - i + 1);
+    static vec dec;  // decisions of info bits;
+    static bvec ibit[2];  // Internal bits, C array in some literature
+    static ivec level;
+    static ivec froms;
+    if (not initialized) {
+        initialized = 1;
+        dec.set_size(n);
+        ibit[0].set_size(n * 2 - 1);
+        ibit[1].set_size(n * 2 - 1);
+        level.set_size(n);
+        for (int i = 1; i <= n; ++i)
+            level[i - 1] = floor_i(::log2(i));
+        froms.set_size(layers + 1);
+        froms[0] = 0;
+        for (int i = 1; i <= layers; ++i)
+            froms[i] = froms[i - 1] + ::pow(2, layers - i + 1);
+    }
     // cout << froms << endl;
     std::stack<int> st;
     int lastVisit = 0;
