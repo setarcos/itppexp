@@ -122,16 +122,16 @@ void Polar::decode(const vec &llr_in, bvec &output)
 
 void Polar::decode_frame_sc(const vec &llr_in, bvec &output)
 {
-    int initialized;
+    static int initialized;
     vec llr = llr_in;
     llr.set_size(n * 2 - 1, true);
-    static vec dec;  // decisions of info bits;
+    static bvec dec;  // decisions of info bits;
     static bvec ibit[2];  // Internal bits, C array in some literature
     static ivec level;
     static ivec froms;
     if (not initialized) {
         initialized = 1;
-        dec.set_size(n);
+        dec.set_size(k);
         ibit[0].set_size(n * 2 - 1);
         ibit[1].set_size(n * 2 - 1);
         level.set_size(n);
@@ -146,6 +146,7 @@ void Polar::decode_frame_sc(const vec &llr_in, bvec &output)
     std::stack<int> st;
     int lastVisit = 0;
     int node = 0;
+    int decidx = 0;
     while (!st.empty() || node < n * 2 - 1) {
         while (node < n * 2 - 1) {
             st.push(node);
@@ -160,11 +161,13 @@ void Polar::decode_frame_sc(const vec &llr_in, bvec &output)
                 }
                 //std::cout << llr << std::endl;
             } else { // decision
-                int idx = node - n + 1;
-                if (fbit[idx]) dec[idx] = 0;
-                else if (llr[n * 2 - 2] > 0) dec[idx] = 0;
-                else dec[idx] = 1;
-                ibit[node % 2][n * 2 - 2] = dec[idx];
+                if (fbit[node - n + 1])
+                    ibit[node % 2][n * 2 - 2] = 0;
+                else {
+                    dec[decidx] = (llr[n * 2 - 2] < 0);
+                    ibit[node % 2][n * 2 - 2] = dec[decidx];
+                    decidx++;
+                }
                 //std::cout << "D" << node << std::endl;
             }
             node = node * 2 + 1; // Left child
@@ -203,10 +206,7 @@ void Polar::decode_frame_sc(const vec &llr_in, bvec &output)
             node = node * 2 + 2;
         }
     }
-    output.set_size(k);
-    for (int i = 0; i < k; ++i) {
-        output[i] = dec[ufbit[i]];
-    }
+    output = dec;
 }
 
 void Polar::decode_frame_sc_r(const vec &llr_in, bvec &output, bvec &code, int s, int l)
