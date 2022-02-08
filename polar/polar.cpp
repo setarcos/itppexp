@@ -108,7 +108,8 @@ void Polar::decode(const vec &llr_in, bvec &output)
     output.set_size(iter * k);
     for (int i = 0; i < iter; ++i) {
         bvec o;
-        decode_frame_sc(llr_in.mid(i * n, n), o);
+        //decode_frame_sc(llr_in.mid(i * n, n), o);
+        decode_frame_scl(llr_in.mid(i * n, n), o, 16);
     /*    bvec o2;
         bvec c;
         decode_frame_sc_r(llr_in.mid(i * n, n), o2, c, 0, n);
@@ -256,6 +257,182 @@ void Polar::decode_frame_sc_r(const vec &llr_in, bvec &output, bvec &code, int s
     }
 }
 
+void Polar::decode_frame_scl(const vec &llr_in, bvec &output, int list_size)
+{
+    static int initialized = 0;
+    static vec llr;
+    static bvec dec;  // decisions of info bits;
+    static bvec ibit[2];  // Internal bits, C array in some literature
+    static ivec level;
+    static ivec froms;
+    static vec pm;  // path matrics
+    static ivec pm2;
+    static ivec lc; // lazy copy array
+    static bvec lactive; // acitve list vector
+    if (not initialized) {
+        initialized = 1;
+        llr.set_size((n - 1) * list_size); // does not copy llr_in
+        dec.set_size(k * list_size);  //save only info bits;
+        ibit[0].set_size((n  - 1) * list_size);  // agree with llr
+        ibit[1].set_size((n  - 1) * list_size);
+        pm.set_size(list_size * 2);
+        pm2.set_size(list_size);
+        lc.set_size(layers * list_size);
+        lactive.set_size(list_size * 2);
+        level.set_size(n);
+        for (int i = 1; i <= n; ++i)
+            level[i - 1] = floor_i(::log2(i));
+        froms.set_size(layers); // unlike sc decoder, llr does not duplicate llr_in, so layers - 1
+        froms[0] = 0;
+        for (int i = 1; i < layers; ++i)
+            froms[i] = froms[i - 1] + ::pow(2, layers - i);
+    }
+    lc.zeros();
+    lactive.zeros();
+    lactive[0] = 1;
+    int active_size = 1;
+    pm.zeros();
+    std::stack<int> st;
+    int lastVisit = 0;
+    int node = 0;
+    int decidx = 0;
+    while (!st.empty() || node < n * 2 - 1) {
+        while (node < n * 2 - 1) {
+            st.push(node);
+            if (node < n - 1) {// F Function
+               // std::cout << "F" << node << std::endl;
+                int step = n / (2 << level[node]);
+                for (int ll = 0; ll < active_size; ++ll) {
+                    for (int i = 0; i < step; ++i) {
+                        double v1, v2;
+                        if (node == 0) {  // level[node] == 0
+                            v1 = llr_in[i];
+                            v2 = llr_in[i + step];
+                        } else {
+                            int idx = froms[level[node] - 1] + i + (n - 1) * ll;
+                            v1 = llr[idx];
+                            v2 = llr[idx + step];
+                        }
+                        llr[(n - 1) * ll + froms[level[node]] + i] =
+                            sign(v1) * sign(v2) * ((::abs(v1) < ::abs(v2)) ? ::abs(v1) : ::abs(v2));
+                    }
+                }
+                //std::cout << llr << std::endl;
+            } else { // decision
+                if (fbit[node - n + 1]) { // frozen bit
+                    for (int ll = 0; ll < active_size; ++ll) {
+                        //int idx = (n - 1) * lc[ll * layers + layers - 1] + n - 2;
+                        int idx = (n - 1) * ll + n - 2;
+                        ibit[node % 2][idx] = 0;
+                        if (llr[idx] < 0) pm[ll] += ::abs(llr[idx]); // update pm
+                    }
+                } else { // clone list
+                    for (int ll = 0; ll < active_size; ++ll) {
+                        //int idx = (n - 1) * lc[ll * layers + layers - 1] + n - 2;
+                        int idx = (n - 1) * ll + n - 2;
+                        dec[k * ll + decidx] = (llr[idx] < 0);
+                        ibit[node % 2][idx] = (llr[idx] < 0);
+                        pm[ll + list_size] = pm[ll] + ::abs(llr[idx]);
+                        if (active_size < list_size)
+                            pm2[ll + active_size] = ll;
+                    }
+                    if (active_size == list_size) {
+                        ivec index = sort_index(pm);
+                        lactive.zeros();
+                        for (int i = 0; i < list_size; ++i)
+                            lactive[index[i]] = 1;
+                        int i = 0;
+                        int j = 0;
+                        while(i < list_size) {
+                            if (lactive[i] == 0) {
+                                while(lactive[j + list_size] == 0) j++;
+                                pm2[i++] = j++;
+                            }
+                            else
+                                i++;
+                        }
+                    } else active_size *= 2;
+                    for (int i = 0; i < active_size; ++i) {
+                        if (lactive[i] == 0) {
+                            // clone pm2[i](th) to i(th) position
+                            for (int j = 0; j < layers; ++j)
+                                lc[i * layers + j] = lc[pm2[i] * layers + j];
+                            for (int j = 0; j < decidx; ++j)
+                                dec[i * k + j] = dec[pm2[i] * k + j];
+                            dec[i * k + decidx] = !dec[pm2[i] * k + decidx];
+                            ibit[node % 2][i * (n - 1) + n - 2] = dec[i * k + decidx];
+                            pm[i] = pm[pm2[i] + list_size];
+                            lactive[i] = 1;
+                        }
+                    }
+                    if (decidx == k - 1) {
+                        ivec index = sort_index(pm.mid(0, list_size));
+                        output = dec.mid(index[0]* k, k);
+                        //std::cout << pm << std::endl;
+                        //std::cout << dec << std::endl;
+                        return;
+                    }
+                    decidx++;
+                }
+                //std::cout << "D" << node << std::endl;
+                //std::cout << llr << std::endl;
+                //std::cout << pm << std::endl;
+            }
+            node = node * 2 + 1; // Left child
+        }
+        node = st.top();
+        if ((lastVisit == node * 2 + 2) || (node * 2 + 2 > n * 2 - 2)) {
+            st.pop();
+            lastVisit = node;
+            if ((node > 0) && (node < n - 1)) {
+                // Caculate internal bits
+                int step = n / (2 << level[node]);
+                for (int ll = 0; ll < active_size; ++ll) {
+                    //int idx = froms[level[node] + 1] + i;
+                    //ibit[node % 2][froms[level[node]] + i] = ibit[0][idx] + ibit[1][idx];
+                    //ibit[node % 2][froms[level[node]] + i + step] = ibit[0][idx];
+                    for (int i = 0; i < step; ++i) {
+                        int idx = (n - 1) * lc[ll * layers + level[node]] + froms[level[node]] + i;
+                        int idx1 = (n - 1) * ll + froms[level[node]] + i;
+                        int idx2 = (n - 1) * ll + froms[level[node] - 1] + i;
+                        ibit[node % 2][idx2] = ibit[0][idx1] + ibit[1][idx];
+                        ibit[node % 2][idx2 + step] = ibit[0][idx1];
+                    }
+                    lc[ll * layers + level[node]] = ll;
+                    if (node % 2) lc[ll * layers + level[node] - 1] = ll; // final write
+                }
+                // std::cout << "C" << node << "  " << active_size << std::endl;
+            }
+            node = 2 * n + 1; // out of range
+        } else {
+            if (node < n - 1) { // Not a leaf node
+                int step = n / (2 << level[node]);
+                // std::cout << ibit << std::endl;
+                // G Function
+                for (int ll = 0; ll < active_size; ++ll) {
+                    for (int i = 0; i < step; ++i) {
+                        double v1, v2;
+                        if (node == 0) {  // level[node] == 0
+                            v1 = llr_in[i];
+                            v2 = llr_in[i + step];
+                        } else {
+                            int idx = froms[level[node] - 1] + i + (n - 1) * lc[ll * layers + level[node] - 1];
+                            v1 = llr[idx];
+                            v2 = llr[idx + step];
+                        }
+                        int idx = (n - 1) * ll + froms[level[node]] + i;
+                        llr[idx] =(1 - 2 * (ibit[1][idx] ? 1 : 0)) * v1 + v2;
+                    }
+                }
+                //std::cout << "G" << node << std::endl;
+                //std::cout << llr << std::endl;
+                //std::cout << ibit[1] << std::endl;
+            }
+            node = node * 2 + 2;
+        }
+    }
+}
+
 bvec Polar::decode(const vec &llr_in)
 {
     bvec decoded_bits;
@@ -285,6 +462,5 @@ double Polar::phi_1(double y)
     } while (::abs(x2 - x1) > 0.01);
     return x1;
 }
-
 
 } // namespace itpp

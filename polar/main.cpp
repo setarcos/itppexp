@@ -11,7 +11,7 @@ using std::setw;
 
 int main(int argc, char *argv[])
 {
-    Polar p(64, 32);
+    Polar p(512, 256);
     BERC ber;
     p.gen_frozen_bec(0.5);
 

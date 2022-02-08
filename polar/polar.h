@@ -42,6 +42,9 @@ public:
   //! SC decoder
   void decode_frame_sc(const vec &llr_in, bvec &output);
 
+  //! SCL decoder
+  void decode_frame_scl(const vec &llr_in, bvec &output, int list_size);
+
   //! Recursive SC decoder for debug reference
   void decode_frame_sc_r(const vec &llr_in, bvec &output, bvec &code, int s, int l);
 
@@ -55,7 +58,7 @@ public:
 private:
   int n, k;
   int layers; // log2(n)
-  bvec fbit;  // frozen bit defination
+  bvec fbit;  // frozen bit definition
   ivec ufbit; // store the position of the information bits
   double phi(double x);
   double phi_1(double y);
