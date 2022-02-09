@@ -7,6 +7,8 @@
 namespace itpp
 {
 
+enum POLAR_DECODER {POLAR_SC, POLAR_SCR, POLAR_SCL};
+
 class ITPP_EXPORT Polar: public Channel_Code
 {
 public:
@@ -39,10 +41,18 @@ public:
     return static_cast<double>(k) / n;
   }
 
+  //! choose decoder
+  void set_polar_decoder(enum POLAR_DECODER d) {
+      method = d;
+  }
+
   //! SC decoder
   void decode_frame_sc(const vec &llr_in, bvec &output);
 
   //! SCL decoder
+  void set_scl_size(int size) {
+      scl_size = size;
+  }
   void decode_frame_scl(const vec &llr_in, bvec &output, int list_size);
 
   //! Recursive SC decoder for debug reference
@@ -60,6 +70,10 @@ private:
   int layers; // log2(n)
   bvec fbit;  // frozen bit definition
   ivec ufbit; // store the position of the information bits
+  int scl_size;
+  enum POLAR_DECODER method;
+
+  // functions used in GA
   double phi(double x);
   double phi_1(double y);
 };

@@ -7,7 +7,7 @@
 namespace itpp {
 
 Polar::Polar(int in_n, int in_k):
-    n(in_n), k(in_k)
+    n(in_n), k(in_k), scl_size(4), method(POLAR_SCL)
 {
     layers = ::log2(n);
 }
@@ -28,13 +28,13 @@ void Polar::gen_frozen_bec(double epsilon)
             a[j % 2][k * 2 + 1] = 2 * a[i % 2][k] - a[i % 2][k] * a[i % 2][k];
         }
     }
-    std::cout << a[layers % 2] << std::endl;
+    //std::cout << a[layers % 2] << std::endl;
     ivec index = sort_index(a[layers % 2]);
     fbit.set_size(n);
     fbit.zeros();
     for (int i = 0; i < k; ++i)
         fbit[index[i]] = 1;
-    std::cout << "[Info]frozen bits are: " << fbit << std::endl;
+    //std::cout << "[Info]frozen bits are: " << fbit << std::endl;
     gen_unfrozen_idx();
 }
 
@@ -54,13 +54,13 @@ void Polar::gen_frozen_ga(double sigma)
             a[j % 2][k * 2 + 1] = 2 * tmp;
         }
     }
-    std::cout << a[layers % 2] << std::endl;
+    //std::cout << a[layers % 2] << std::endl;
     ivec index = sort_index(a[layers % 2]);
     fbit.set_size(n);
     fbit.zeros();
     for (int i = 0; i < k; ++i)
         fbit[index[i]] = 1;
-    std::cout << "[Info]frozen bits are: " << fbit << std::endl;
+    //std::cout << "[Info]frozen bits are: " << fbit << std::endl;
     gen_unfrozen_idx();
 }
 
@@ -108,15 +108,19 @@ void Polar::decode(const vec &llr_in, bvec &output)
     output.set_size(iter * k);
     for (int i = 0; i < iter; ++i) {
         bvec o;
-        //decode_frame_sc(llr_in.mid(i * n, n), o);
-        decode_frame_scl(llr_in.mid(i * n, n), o, 16);
-    /*    bvec o2;
-        bvec c;
-        decode_frame_sc_r(llr_in.mid(i * n, n), o2, c, 0, n);
-        o.set_size(k);
-        for (int i = 0; i < k; ++i) {
-            o[i] = o2[ufbit[i]];
-        } */
+        if (method == POLAR_SC)
+            decode_frame_sc(llr_in.mid(i * n, n), o);
+        if (method == POLAR_SCL)
+            decode_frame_scl(llr_in.mid(i * n, n), o, scl_size);
+        if (method == POLAR_SCR) {
+            bvec o2;
+            bvec c;
+            decode_frame_sc_r(llr_in.mid(i * n, n), o2, c, 0, n);
+            o.set_size(k);
+            for (int i = 0; i < k; ++i) {
+                o[i] = o2[ufbit[i]];
+            }
+        }
         output.replace_mid(i * k, o);
     }
 }
