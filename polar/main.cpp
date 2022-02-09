@@ -11,7 +11,7 @@ using std::setw;
 
 int main(int argc, char *argv[])
 {
-    Polar p(128, 64);
+    Polar p(512, 256);
     BERC ber;
     p.gen_frozen_ga(0.75);
 
@@ -24,8 +24,9 @@ int main(int argc, char *argv[])
         if (m == 0)
             p.set_polar_decoder(POLAR_SC);
         if (m == 1) {
-            p.set_polar_decoder(POLAR_SCL);
-            p.set_scl_size(8);
+            p.set_polar_decoder(POLAR_CASCL);
+            p.set_crc_code("CRC-8", 8);
+            p.set_scl_size(16);
         }
         for (int i = 0; i < length; ++i) {
             double N0 = pow(10.0, -EbN0db[i] / 10.0) / p.get_rate();

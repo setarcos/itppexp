@@ -2,12 +2,13 @@
 #define POLAR_H
 
 #include <itpp/comm/channel_code.h>
+#include <itpp/comm/crc.h>
 #include <itpp/itexports.h>
 
 namespace itpp
 {
 
-enum POLAR_DECODER {POLAR_SC, POLAR_SCR, POLAR_SCL};
+enum POLAR_DECODER {POLAR_SC, POLAR_SCR, POLAR_SCL, POLAR_CASCL};
 
 class ITPP_EXPORT Polar: public Channel_Code
 {
@@ -38,22 +39,32 @@ public:
 
   //! Get the code rate
   virtual double get_rate() const {
-    return static_cast<double>(k) / n;
+    return static_cast<double>(k - crc_size) / n;
   }
 
   //! choose decoder
   void set_polar_decoder(enum POLAR_DECODER d) {
       method = d;
+      if (d == POLAR_SCL)
+          crc_size = 0;
   }
 
   //! SC decoder
   void decode_frame_sc(const vec &llr_in, bvec &output);
 
   //! SCL decoder
+  void decode_frame_scl(const vec &llr_in, bvec &output, int list_size);
+
+  //! Set SCL decoder list size
   void set_scl_size(int size) {
       scl_size = size;
   }
-  void decode_frame_scl(const vec &llr_in, bvec &output, int list_size);
+
+  //! Set CRC code
+  void set_crc_code(const std::string &code, int size) {
+      crc.set_code(code);
+      crc_size = size;
+  }
 
   //! Recursive SC decoder for debug reference
   void decode_frame_sc_r(const vec &llr_in, bvec &output, bvec &code, int s, int l);
@@ -61,7 +72,7 @@ public:
   //! Generate frozen bits
   void gen_frozen_bec(double epsilon);
   void gen_frozen_ga(double sigma);
-  
+
   //! Generate information bits position index
   void gen_unfrozen_idx();
 
@@ -71,6 +82,8 @@ private:
   bvec fbit;  // frozen bit definition
   ivec ufbit; // store the position of the information bits
   int scl_size;
+  CRC_Code crc;
+  int crc_size;
   enum POLAR_DECODER method;
 
   // functions used in GA

@@ -7,7 +7,7 @@
 namespace itpp {
 
 Polar::Polar(int in_n, int in_k):
-    n(in_n), k(in_k), scl_size(4), method(POLAR_SCL)
+    n(in_n), k(in_k), scl_size(4), crc_size(0), method(POLAR_SCL)
 {
     layers = ::log2(n);
 }
@@ -78,12 +78,20 @@ void Polar::gen_unfrozen_idx()
 void Polar::encode(const bvec &uncoded_bits, bvec &coded_bits)
 {
     int length = uncoded_bits.length();
-    int iter = length / k;
+    int iter = length / (k - crc_size);
     coded_bits.set_size(iter * n);
     coded_bits.zeros();
     for (int i = 0; i < iter; ++i) {
-        for (int j = 0; j < k; ++j)
-            coded_bits[i * n + ufbit[j]] = uncoded_bits[i * k + j];
+        if (crc_size == 0) {
+            for (int j = 0; j < k; ++j)
+                coded_bits[i * n + ufbit[j]] = uncoded_bits[i * k + j];
+        } else {
+            bvec cabit;
+            crc.encode(uncoded_bits.mid(i * (k - crc_size), k - crc_size), cabit);
+            for (int j = 0; j < k; ++j)
+                coded_bits[i * n + ufbit[j]] = cabit[j];
+            // std::cout << cabit << std::endl;;
+        }
         for (int step = 1; step < n; step *= 2) {
             for (int j = 0; j < step; ++j) {
                 for (int l = 0; l < n; l += 2 * step) {
@@ -110,7 +118,7 @@ void Polar::decode(const vec &llr_in, bvec &output)
         bvec o;
         if (method == POLAR_SC)
             decode_frame_sc(llr_in.mid(i * n, n), o);
-        if (method == POLAR_SCL)
+        if ((method == POLAR_SCL) || (method == POLAR_CASCL))
             decode_frame_scl(llr_in.mid(i * n, n), o, scl_size);
         if (method == POLAR_SCR) {
             bvec o2;
@@ -121,7 +129,10 @@ void Polar::decode(const vec &llr_in, bvec &output)
                 o[i] = o2[ufbit[i]];
             }
         }
-        output.replace_mid(i * k, o);
+        if (crc_size)
+            output.replace_mid(i * (k - crc_size), o.mid(0, k - crc_size));
+        else
+            output.replace_mid(i * k, o);
     }
 }
 
@@ -272,7 +283,7 @@ void Polar::decode_frame_scl(const vec &llr_in, bvec &output, int list_size)
     static vec pm;  // path matrics
     static ivec pm2;
     static ivec lc; // lazy copy array
-    static bvec lactive; // acitve list vector
+    static bvec lactive; // active list vector
     if (not initialized) {
         initialized = 1;
         llr.set_size((n - 1) * list_size); // does not copy llr_in
@@ -341,6 +352,9 @@ void Polar::decode_frame_scl(const vec &llr_in, bvec &output, int list_size)
                             pm2[ll + active_size] = ll;
                     }
                     if (active_size == list_size) {
+                        std::cout << pm << std::endl;
+                        for (int i = 0; i < list_size; ++i)
+                            std::cout << llr.mid((n-1)*i, n-1) << std::endl;
                         ivec index = sort_index(pm);
                         lactive.zeros();
                         for (int i = 0; i < list_size; ++i)
@@ -370,6 +384,27 @@ void Polar::decode_frame_scl(const vec &llr_in, bvec &output, int list_size)
                         }
                     }
                     if (decidx == k - 1) {
+                        if (crc_size) { // CASCL
+                            int best = -1;
+                            double pmbest;
+                            for (int i = 0; i < list_size; ++i) {
+                                if (crc.check_parity(dec.mid(i * k, k))) {
+                                    if (best < 0) {
+                                        pmbest = pm[i];
+                                        best = i;
+                                    } else if (pm[i] <= pmbest) {
+                                        best = i;
+                                        pmbest = pm[i];
+                                    }
+                                }
+                            }
+                            if (best >= 0) {
+                                std::cout << "Best is" << best << std::endl;
+                                output = dec.mid(best * k, k);
+                                return;
+                            } // if no valid crc found, fall back to choose the smallest pm index
+                            std::cout << "frame error" << std::endl;
+                        }
                         ivec index = sort_index(pm.mid(0, list_size));
                         output = dec.mid(index[0]* k, k);
                         //std::cout << pm << std::endl;
@@ -392,9 +427,6 @@ void Polar::decode_frame_scl(const vec &llr_in, bvec &output, int list_size)
                 // Caculate internal bits
                 int step = n / (2 << level[node]);
                 for (int ll = 0; ll < active_size; ++ll) {
-                    //int idx = froms[level[node] + 1] + i;
-                    //ibit[node % 2][froms[level[node]] + i] = ibit[0][idx] + ibit[1][idx];
-                    //ibit[node % 2][froms[level[node]] + i + step] = ibit[0][idx];
                     for (int i = 0; i < step; ++i) {
                         int idx = (n - 1) * lc[ll * layers + level[node]] + froms[level[node]] + i;
                         int idx1 = (n - 1) * ll + froms[level[node]] + i;
