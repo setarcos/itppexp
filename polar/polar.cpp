@@ -290,6 +290,8 @@ void Polar::decode_frame_scl(const vec &llr_in, bvec &output, int list_size)
         dec.set_size(k * list_size);  //save only info bits;
         ibit[0].set_size((n  - 1) * list_size);  // agree with llr
         ibit[1].set_size((n  - 1) * list_size);
+        ibit[0].zeros();
+        ibit[1].zeros();
         pm.set_size(list_size * 2);
         pm2.set_size(list_size);
         lc.set_size(layers * list_size);
@@ -352,9 +354,9 @@ void Polar::decode_frame_scl(const vec &llr_in, bvec &output, int list_size)
                             pm2[ll + active_size] = ll;
                     }
                     if (active_size == list_size) {
-                        std::cout << pm << std::endl;
-                        for (int i = 0; i < list_size; ++i)
-                            std::cout << llr.mid((n-1)*i, n-1) << std::endl;
+                       // std::cout << pm << std::endl;
+                        //for (int i = 0; i < list_size; ++i)
+                         //   std::cout << llr.mid((n-1)*i, n-1) << std::endl;
                         ivec index = sort_index(pm);
                         lactive.zeros();
                         for (int i = 0; i < list_size; ++i)
@@ -379,6 +381,7 @@ void Polar::decode_frame_scl(const vec &llr_in, bvec &output, int list_size)
                                 dec[i * k + j] = dec[pm2[i] * k + j];
                             dec[i * k + decidx] = !dec[pm2[i] * k + decidx];
                             ibit[node % 2][i * (n - 1) + n - 2] = dec[i * k + decidx];
+                            if (node % 2) lc[i * layers + layers - 1] = i;
                             pm[i] = pm[pm2[i] + list_size];
                             lactive[i] = 1;
                         }
@@ -399,11 +402,11 @@ void Polar::decode_frame_scl(const vec &llr_in, bvec &output, int list_size)
                                 }
                             }
                             if (best >= 0) {
-                                std::cout << "Best is" << best << std::endl;
+                                //std::cout << "Best is" << best << std::endl;
                                 output = dec.mid(best * k, k);
                                 return;
                             } // if no valid crc found, fall back to choose the smallest pm index
-                            std::cout << "frame error" << std::endl;
+                            //std::cout << "frame error" << std::endl;
                         }
                         ivec index = sort_index(pm.mid(0, list_size));
                         output = dec.mid(index[0]* k, k);
@@ -415,7 +418,10 @@ void Polar::decode_frame_scl(const vec &llr_in, bvec &output, int list_size)
                 }
                 //std::cout << "D" << node << std::endl;
                 //std::cout << llr << std::endl;
+                //std::cout << ibit[1] << std::endl;
+                //std::cout << ibit[0] << std::endl;
                 //std::cout << pm << std::endl;
+                //std::cout << lc << std::endl;
             }
             node = node * 2 + 1; // Left child
         }
@@ -463,6 +469,8 @@ void Polar::decode_frame_scl(const vec &llr_in, bvec &output, int list_size)
                 //std::cout << "G" << node << std::endl;
                 //std::cout << llr << std::endl;
                 //std::cout << ibit[1] << std::endl;
+                //std::cout << ibit[0] << std::endl;
+                //std::cout << lc << std::endl;
             }
             node = node * 2 + 2;
         }

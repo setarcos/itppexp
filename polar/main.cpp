@@ -9,30 +9,37 @@ using std::endl;
 using std::cout;
 using std::setw;
 
+#define BLK_LEN 2048
+#define CRC "CCITT-16"
+#define CRC_LEN 16
+
 int main(int argc, char *argv[])
 {
-    Polar p(512, 256);
+    Polar p(BLK_LEN, BLK_LEN / 2);
     BERC ber;
-    p.gen_frozen_ga(0.75);
+    p.gen_frozen_bec(0.32);
 
-    vec EbN0db = "0:0.5:4";
+    vec EbN0db = "1:0.25:3";
     vec bit_error_rate;
     int length = EbN0db.length();
     bit_error_rate.set_size(length * 2);
     RNG_randomize();
     for (int m = 0; m < 2; ++m) {
-        if (m == 0)
+        bvec bitsin;
+        if (m == 0) {
             p.set_polar_decoder(POLAR_SC);
+            bitsin = randb(BLK_LEN * 1000);
+        }
         if (m == 1) {
             p.set_polar_decoder(POLAR_CASCL);
-            p.set_crc_code("CRC-8", 8);
-            p.set_scl_size(16);
+            p.set_crc_code(CRC, CRC_LEN);
+            p.set_scl_size(8);
+            bitsin = randb((BLK_LEN - CRC_LEN) * 1000);
         }
         for (int i = 0; i < length; ++i) {
             double N0 = pow(10.0, -EbN0db[i] / 10.0) / p.get_rate();
             AWGN_Channel chan(N0 / 2);
             BPSK mod;
-            bvec bitsin = randb(512000);
             bvec coded;
             p.encode(bitsin, coded);
             vec s = mod.modulate_bits(coded);
