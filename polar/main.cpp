@@ -13,11 +13,12 @@ using std::setw;
 #define CRC "CCITT-16"
 #define CRC_LEN 16
 #define LIST_SIZE 16
+#define RUN_SIZE 1000
 
 int main(int argc, char *argv[])
 {
     Polar p(BLK_LEN, BLK_LEN / 2);
-    p.gen_frozen_bec(0.32);
+    p.gen_frozen_ga(0.79433);
     BERC ber;
     BLERC bler;
     vec EbN0db = "1:0.25:3";
@@ -32,28 +33,30 @@ int main(int argc, char *argv[])
         m = atoi(argv[1]);
     bvec bitsin;
     std::ofstream f;
+    int runsize = BLK_LEN / 2 * RUN_SIZE;
     if (m == 0) {
         p.set_polar_decoder(POLAR_SC);
-        bitsin = randb(BLK_LEN * 1000);
-        bler.set_blocksize(BLK_LEN);
+        bler.set_blocksize(BLK_LEN / 2);
         f.open("sc.dat");
     }
     if (m == 1) {
         p.set_polar_decoder(POLAR_SCL);
-        bitsin = randb(BLK_LEN * 1000);
         p.set_scl_size(LIST_SIZE);
-        bler.set_blocksize(BLK_LEN);
+        bler.set_blocksize(BLK_LEN / 2);
         f.open("scl.dat");
     }
     if (m == 2) {
         p.set_polar_decoder(POLAR_CASCL);
         p.set_crc_code(CRC, CRC_LEN);
         p.set_scl_size(LIST_SIZE);
-        bitsin = randb((BLK_LEN / 2 - CRC_LEN) * 2000);
-        bler.set_blocksize(BLK_LEN - CRC_LEN);
+        bler.set_blocksize(BLK_LEN / 2 - CRC_LEN);
         f.open("cascl.dat");
+        runsize = (BLK_LEN / 2 - CRC_LEN) * RUN_SIZE;
     }
-    for (int i = 0; i < length; ++i) {
+    ber.clear();
+    bler.clear();
+    for (int i = 0; i < length;) {
+        bitsin =randb(runsize);
         double N0 = pow(10.0, -EbN0db[i] / 10.0) / p.get_rate();
         AWGN_Channel chan(N0 / 2);
         BPSK mod;
@@ -64,12 +67,15 @@ int main(int argc, char *argv[])
         vec llr = mod.demodulate_soft_bits(x, N0);
         bvec output;
         p.decode(llr, output);
-        ber.clear();
         ber.count(bitsin, output);
-        bit_erate[i] = ber.get_errorrate();
-        bler.clear();
         bler.count(bitsin, output);
-        blk_erate[i] = bler.get_errorrate();
+        if ((bler.get_errors() > 100) || (bler.get_total_blocks() > 50000)) {
+            bit_erate[i] = ber.get_errorrate();
+            blk_erate[i] = bler.get_errorrate();
+            i++;
+            ber.clear();
+            bler.clear();
+        }
     }
     for (int i = 0; i < length; ++i) {
         f << setw(4) << EbN0db(i) << setw(12) << bit_erate(i) << setw(12) << blk_erate(i) << endl;
