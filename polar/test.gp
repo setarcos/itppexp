@@ -1,5 +1,5 @@
 set grid
-set term wxt size 600,300
+set term qt size 900,450
 set multiplot layout 1,2
 set logscale y
 set xlabel "Eb/N0[db]"

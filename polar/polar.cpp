@@ -7,7 +7,7 @@
 namespace itpp {
 
 Polar::Polar(int in_n, int in_k):
-    n(in_n), k(in_k), scl_size(4), crc_size(0), method(POLAR_SCL)
+    n(in_n), k(in_k), scl_size(4), crc_size(0), glen(0), method(POLAR_SCL)
 {
     layers = ::log2(n);
 }
@@ -64,6 +64,26 @@ void Polar::gen_frozen_ga(double sigma)
     gen_unfrozen_idx();
 }
 
+void Polar::gen_frozen_rm()
+{
+    ivec a;
+    a.set_size(n);
+    a.zeros();
+    for (int i = 0; i < n; ++i){
+        int num = i;
+        for (int j = 0; j < layers; ++j) {
+            if(num % 2) a[i]++;
+            num /= 2;
+        }
+    }
+    ivec idx = sort_index(a);
+    fbit.set_size(n);
+    fbit.zeros();
+    for (int i = 0; i < k; ++i)
+        fbit[idx[i]] = 1;
+    gen_unfrozen_idx();
+}
+
 void Polar::gen_unfrozen_idx()
 {
     ufbit.set_size(k);
@@ -92,6 +112,17 @@ void Polar::encode(const bvec &uncoded_bits, bvec &coded_bits)
                 coded_bits[i * n + ufbit[j]] = cabit[j];
             // std::cout << cabit << std::endl;;
         }
+        if (glen > 0) { // PAC encode
+            bvec s1, s2;
+            s1.set_size(glen - 1);
+            s2.set_size(glen - 1);
+            s1.zeros();
+            // Convolution
+            for (int j = 0; j < n; ++j) {
+                coded_bits[i * n + j] = conv1b_trans(coded_bits[i * n + j], s1, s2);
+                s1 = s2;
+            }
+        }
         for (int step = 1; step < n; step *= 2) {
             for (int j = 0; j < step; ++j) {
                 for (int l = 0; l < n; l += 2 * step) {
@@ -118,7 +149,7 @@ void Polar::decode(const vec &llr_in, bvec &output)
         bvec o;
         if (method == POLAR_SC)
             decode_frame_sc(llr_in.mid(i * n, n), o);
-        if ((method == POLAR_SCL) || (method == POLAR_CASCL))
+        if ((method == POLAR_SCL) || (method == POLAR_CASCL) || (method == PAC_SCL))
             decode_frame_scl(llr_in.mid(i * n, n), o, scl_size);
         if (method == POLAR_SCR) {
             bvec o2;
@@ -284,14 +315,18 @@ void Polar::decode_frame_scl(const vec &llr_in, bvec &output, int list_size)
     static ivec pm2;
     static ivec lc; // lazy copy array
     static bvec lactive; // active list vector
+    static bvec cstate;
+    static bvec state;
+    static bvec udec;
     if (not initialized) {
         initialized = 1;
         llr.set_size((n - 1) * list_size); // does not copy llr_in
         dec.set_size(k * list_size);  //save only info bits;
         ibit[0].set_size((n  - 1) * list_size);  // agree with llr
         ibit[1].set_size((n  - 1) * list_size);
-        ibit[0].zeros();
-        ibit[1].zeros();
+        cstate.set_size((glen - 1) * list_size * 2);
+        state.set_size(glen - 1);
+        udec.set_size(list_size);
         pm.set_size(list_size * 2);
         pm2.set_size(list_size);
         lc.set_size(layers * list_size);
@@ -306,6 +341,7 @@ void Polar::decode_frame_scl(const vec &llr_in, bvec &output, int list_size)
     }
     lc.zeros();
     lactive.zeros();
+    cstate.zeros();
     lactive[0] = 1;
     int active_size = 1;
     pm.zeros();
@@ -340,18 +376,48 @@ void Polar::decode_frame_scl(const vec &llr_in, bvec &output, int list_size)
                     for (int ll = 0; ll < active_size; ++ll) {
                         //int idx = (n - 1) * lc[ll * layers + layers - 1] + n - 2;
                         int idx = (n - 1) * ll + n - 2;
-                        ibit[node % 2][idx] = 0;
-                        if (llr[idx] < 0) pm[ll] += ::abs(llr[idx]); // update pm
+                        if (glen > 0) { // PAC
+                            ibit[node % 2][idx] = conv1b_trans(0, cstate, state, ll * (glen - 1));
+                            cstate.replace_mid(ll * (glen - 1), state);
+                            if (ibit[node % 2][idx] != llr2bin(llr[idx]))
+                                pm[ll] += ::abs(llr[idx]);
+                        } else {
+                            ibit[node % 2][idx] = 0;
+                            if (llr[idx] < 0) pm[ll] += ::abs(llr[idx]); // update pm
+                        }
                     }
                 } else { // clone list
                     for (int ll = 0; ll < active_size; ++ll) {
                         //int idx = (n - 1) * lc[ll * layers + layers - 1] + n - 2;
                         int idx = (n - 1) * ll + n - 2;
-                        dec[k * ll + decidx] = (llr[idx] < 0);
-                        ibit[node % 2][idx] = (llr[idx] < 0);
-                        pm[ll + list_size] = pm[ll] + ::abs(llr[idx]);
+                        if (glen > 0) { // PAC
+                            bin u0 = conv1b_trans(0, cstate, state, ll * (glen - 1));
+                            bin v0;
+                            if (u0 != llr2bin(llr[idx])) { // will be punished
+                                v0 = 1;
+                            } else {
+                                v0 = 0;
+                                u0 = conv1b_trans(1, cstate, state, ll * (glen - 1));
+                            }
+                            // u0 always be for the cloned path
+                            if (u0 != llr2bin(llr[idx]))
+                                pm[ll + list_size] = pm[ll] + ::abs(llr[idx]);
+                            else
+                                pm[ll + list_size] = pm[ll]; // although v[i] are different, u[i] may be the same
+                            cstate.replace_mid((glen - 1) * (ll + list_size), state);
+                            udec[ll] = u0; // clone later
+                            dec[k * ll + decidx] = v0; // original path
+                            ibit[node % 2][idx] = conv1b_trans(v0, cstate, state, ll * (glen - 1));
+                            cstate.replace_mid((glen - 1) * ll, state);
+                            if (ibit[node % 2][idx] != llr2bin(llr[idx]))
+                                pm[ll] += ::abs(llr[idx]);
+                        } else {
+                            dec[k * ll + decidx] = (llr[idx] < 0);
+                            ibit[node % 2][idx] = (llr[idx] < 0);
+                            pm[ll + list_size] = pm[ll] + ::abs(llr[idx]);
+                        }
                         if (active_size < list_size)
-                            pm2[ll + active_size] = ll;
+                            pm2[ll + active_size] = ll; // lactive[ll + active_size] == 0
                     }
                     if (active_size == list_size) {
                        // std::cout << pm << std::endl;
@@ -380,8 +446,13 @@ void Polar::decode_frame_scl(const vec &llr_in, bvec &output, int list_size)
                             for (int j = 0; j < decidx; ++j)
                                 dec[i * k + j] = dec[pm2[i] * k + j];
                             dec[i * k + decidx] = !dec[pm2[i] * k + decidx];
-                            ibit[node % 2][i * (n - 1) + n - 2] = dec[i * k + decidx];
-                            if (node % 2) lc[i * layers + layers - 1] = i;
+                            if (glen == 0)
+                                ibit[node % 2][i * (n - 1) + n - 2] = dec[i * k + decidx];
+                            else {
+                                ibit[node % 2][i * (n - 1) + n - 2] = udec[pm2[i]];
+                                cstate.replace_mid(i * (glen - 1), cstate.mid((pm2[i] + list_size) * (glen - 1), glen - 1));
+                            }
+                            if (node % 2) lc[i * layers + layers - 1] = i; // Important
                             pm[i] = pm[pm2[i] + list_size];
                             lactive[i] = 1;
                         }
@@ -505,6 +576,18 @@ double Polar::phi_1(double y)
         x1 += (y - y1) / k;
     } while (::abs(x2 - x1) > 0.01);
     return x1;
+}
+
+/* new_state should has the same size as state */
+bin Polar::conv1b_trans(bin v, bvec &state, bvec &new_state, int start)
+{
+    bin u = generator[0] * v;
+    for (int i = 1; i < glen; ++i) {
+        if (generator[i]) u += state[start + i - 1];
+        if (i != glen - 1) new_state[i] = state[start + i - 1];
+    }
+    new_state[0] = v;
+    return u;
 }
 
 } // namespace itpp

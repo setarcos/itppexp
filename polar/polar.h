@@ -8,7 +8,7 @@
 namespace itpp
 {
 
-enum POLAR_DECODER {POLAR_SC, POLAR_SCR, POLAR_SCL, POLAR_CASCL};
+enum POLAR_DECODER {POLAR_SC, POLAR_SCR, POLAR_SCL, POLAR_CASCL, PAC_SCL};
 
 class ITPP_EXPORT Polar: public Channel_Code
 {
@@ -72,18 +72,33 @@ public:
   //! Generate frozen bits
   void gen_frozen_bec(double epsilon);
   void gen_frozen_ga(double sigma);
+  void gen_frozen_rm();
 
   //! Generate information bits position index
   void gen_unfrozen_idx();
+
+  //! Set the function generator
+  void set_pac_generator(const bvec &b) {
+      generator = b;
+      glen = b.size();
+  }
+
+  bin conv1b_trans(bin v, bvec &state, bvec &new_state, int start = 0);
+  inline bin llr2bin(double llr) {
+      if (llr < 0) return 1;
+      else return 0;
+  }
 
 private:
   int n, k;
   int layers; // log2(n)
   bvec fbit;  // frozen bit definition
   ivec ufbit; // store the position of the information bits
+  bvec generator; // function generator for the PAC convolutional code
   int scl_size;
   CRC_Code crc;
   int crc_size;
+  int glen;
   enum POLAR_DECODER method;
 
   // functions used in GA
