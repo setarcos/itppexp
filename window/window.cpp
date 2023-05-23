@@ -20,7 +20,7 @@ int main(int argc, char * argv[])
         t = atoi(argv[1]);
 
     for (int i = 0; i < N; ++i) {
-        b[i] = 0.5 + sin(2 * PI * (f1 + 0.3)/ fs *i) + sin(2 * PI * f2 / fs * i);
+        b[i] = sin(2 * PI * (f1 + 0.3)/ fs *i) + sin(2 * PI * f2 / fs * i);
     }
     vec d;
     vec win;
