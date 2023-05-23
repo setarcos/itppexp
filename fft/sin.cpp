@@ -1,5 +1,6 @@
 #include <itpp/itsignal.h>
 #include <fstream>
+#include <iomanip>
 
 using namespace std;
 using namespace itpp;
@@ -54,7 +55,7 @@ int main(int argc, char * argv[])
     cvec c = fft_real(d);
     ofstream ofs ("test.dat", ofstream::out);
     for (int i = 0; i < N; ++i) {
-        ofs << abs(c[i]) / N << endl;
+        ofs << setw(16) << abs(c[i]) / N << setw(16) << d[i] <<  endl;
     }
     ofs.close();
 }
